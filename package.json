@@ -8,6 +8,6 @@
   },
   "devDependencies": {
     "@fontsource/vazirmatn": "^5.2.8",
-    "mammoth": "^1.12.0"
+    "mammoth": "^1.12.1"
   }
 }
