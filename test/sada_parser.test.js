@@ -122,3 +122,12 @@ test('supports grids that split headers and body into separate tables', () => {
   assert.equal(result.groups.length, 2);
   assert.match(result.warnings.join(' '), /دو جدول جدا/);
 });
+
+test('ignores a trailing action cell in a split SADA body table', () => {
+  const split = [
+    { tableIndex: 0, rows: [tables[0].rows[0]] },
+    { tableIndex: 1, rows: tables[0].rows.slice(1).map((row) => [...row, 'انتخاب']) },
+  ];
+  const result = parseSadaTables(split);
+  assert.equal(result.groups.length, 2);
+});

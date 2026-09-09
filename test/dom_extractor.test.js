@@ -39,6 +39,20 @@ test('extracts a table from a visible same-origin iframe', () => {
   }]);
 });
 
+test('joins a split SADA header with body rows that include an action cell', () => {
+  const cell = (textContent) => ({ textContent, cloneNode: () => ({ textContent, querySelectorAll: () => [] }) });
+  const header = visible({
+    rows: [{ cells: ['ردیف', 'نام درس', 'استاد', 'برنامه زمانی', 'زمان امتحان', 'مقطع', 'ترم', 'ظرفیت مانده', 'شهریه'].map(cell) }],
+  });
+  const body = visible({
+    rows: [{ cells: ['۱', 'درس نمونه گروه ۱', 'استاد نمونه', 'شنبه ۰۸:۰۰ - ۰۹:۳۰', '', 'کارشناسی', '۱۴۰۵۱', '۱۰', '۰', 'انتخاب'].map(cell) }],
+  });
+  const result = context.sadaDomExtractor.extractVisibleTables(documentWith({ tables: [header, body] }));
+
+  assert.equal(result.rowCount, 1);
+  assert.equal(result.tables.length, 2);
+});
+
 test('returns every visible table for the transcript parser', () => {
   const cell = (textContent) => ({ textContent, cloneNode: () => ({ textContent, querySelectorAll: () => [] }) });
   const first = visible({ rows: [{ cells: [cell('نام درس')] }] });

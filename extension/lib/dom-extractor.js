@@ -160,7 +160,7 @@
     if (!rowCount) {
       const width = bestTable.width;
       rowCount = gatheredResult.tables
-        .filter((table) => table !== bestTable && table.framePath === bestTable.framePath && table.width === width)
+        .filter((table) => table !== bestTable && table.framePath === bestTable.framePath && table.width >= width && table.width <= width + 1)
         .reduce((sum, table) => sum + table.rowCount, 0);
     }
 
@@ -198,7 +198,7 @@
       if (status.selectorFound) {
         const parts = result.tables.filter((table) =>
           table === status.bestTable ||
-          (status.bestTable.rowCount - 1 <= 0 && table.framePath === status.bestTable.framePath && table.width === status.bestTable.width)
+          (status.bestTable.rowCount - 1 <= 0 && table.framePath === status.bestTable.framePath && table.width >= status.bestTable.width && table.width <= status.bestTable.width + 1)
         );
 
         for (const part of parts) {

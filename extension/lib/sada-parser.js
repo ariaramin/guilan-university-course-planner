@@ -233,7 +233,7 @@ export function parseSadaTables(tables) {
     const bodyTable = tables
       .filter((candidate) => candidate !== table)
       .sort((a, b) => Math.abs(a.tableIndex - table.tableIndex) - Math.abs(b.tableIndex - table.tableIndex))
-      .find(({ rows }) => rows.some((row) => row.length === headers.length && valueAt(row, indexes.title)));
+      .find(({ rows }) => rows.some((row) => row.length >= headers.length && valueAt(row, indexes.title)));
     dataRows = bodyTable?.rows ?? [];
     if (bodyTable) warnings.push('سرستون و بدنه grid از دو جدول جدا خوانده شدند.');
   }
