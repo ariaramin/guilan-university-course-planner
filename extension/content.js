@@ -1,7 +1,7 @@
 (() => {
   if (globalThis.__guilanPlannerContent) return;
 
-  const CONTENT_VERSION = '1.1.0';
+  const CONTENT_VERSION = '1.1.1';
   const extractor = globalThis.sadaDomExtractor;
   const STABILITY_MS = 350;
   const EXTRACTION_TIMEOUT_MS = 6500;

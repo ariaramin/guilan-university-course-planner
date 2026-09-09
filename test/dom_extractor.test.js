@@ -122,3 +122,11 @@ test('ignores loading indicators hidden by computed style', () => {
   doc.querySelectorAll = (selector) => selector.includes('[aria-busy="true"]') ? [hiddenLoader] : [];
   assert.equal(context.sadaDomExtractor.hasVisibleLoadingIndicator(doc), false);
 });
+
+test('does not treat SADA dashboard bootstrap markup as active loading', () => {
+  const bootstrapLoader = visible({});
+  const doc = documentWith();
+  doc.querySelectorAll = (selector) => selector.includes('.loading') ? [bootstrapLoader] : [];
+
+  assert.equal(context.sadaDomExtractor.hasVisibleLoadingIndicator(doc), false);
+});

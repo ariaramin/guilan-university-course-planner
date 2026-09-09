@@ -50,7 +50,7 @@ test('handshakes before extraction when the content script is already active', a
     sendMessage: async (_id, message) => {
       calls.push(message.type);
       return message.type === 'PING_SADA_CONTENT_SCRIPT'
-        ? { type: 'PONG_SADA_CONTENT_SCRIPT', requestId: message.requestId, ready: true, version: '1.1.0' }
+        ? { type: 'PONG_SADA_CONTENT_SCRIPT', requestId: message.requestId, ready: true, version: '1.1.1' }
         : table(message.requestId);
     },
   });
@@ -67,7 +67,7 @@ test('injects once on a supported page with no receiver, then repeats the handsh
     sendMessage: async (_id, message) => {
       if (message.type === 'PING_SADA_CONTENT_SCRIPT' && pingCount++ === 0) throw new Error('Could not establish connection. Receiving end does not exist.');
       return message.type === 'PING_SADA_CONTENT_SCRIPT'
-        ? { type: 'PONG_SADA_CONTENT_SCRIPT', requestId: message.requestId, ready: true, version: '1.1.0' }
+        ? { type: 'PONG_SADA_CONTENT_SCRIPT', requestId: message.requestId, ready: true, version: '1.1.1' }
         : table(message.requestId);
     },
   });
@@ -90,7 +90,7 @@ test('stores passed courses from SADA tables that split headers from rows', asyn
   const app = await boot({
     tab: { id: 6, url: 'https://sada.guilan.ac.ir/Dashboard' },
     sendMessage: async (_id, message) => message.type === 'PING_SADA_CONTENT_SCRIPT'
-      ? { type: 'PONG_SADA_CONTENT_SCRIPT', requestId: message.requestId, ready: true, version: '1.1.0' }
+      ? { type: 'PONG_SADA_CONTENT_SCRIPT', requestId: message.requestId, ready: true, version: '1.1.1' }
       : {
         requestId: message.requestId, success: true, tables: [
           { framePath: 'top.0', rows: [['کد درس', 'نام درس', 'نمره', 'تئوری', 'عملی', 'کارگاهی']] },

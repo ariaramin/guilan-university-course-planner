@@ -4,7 +4,7 @@ import { normalizeGroup } from './lib/normalize.js';
 import { parseSadaTables } from './lib/sada-parser.js';
 import { parseTranscriptTables } from './lib/transcript-parser.js';
 
-const CONTENT_VERSION = '1.1.0';
+const CONTENT_VERSION = '1.1.1';
 const SADA_ORIGIN = 'https://sada.guilan.ac.ir';
 const latestRequestByTab = new Map();
 const inFlightTabs = new Set();

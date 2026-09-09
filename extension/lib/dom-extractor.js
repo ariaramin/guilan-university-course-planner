@@ -235,7 +235,7 @@
       let loading = false;
       visitDocuments(doc, (current) => {
         if (loading) return;
-        loading = [...current.querySelectorAll('[aria-busy="true"], .loading, .mat-spinner, .mat-progress-spinner')].some(visiblyRendered);
+        loading = [...current.querySelectorAll('[aria-busy="true"], .mat-spinner, .mat-progress-spinner')].some(visiblyRendered);
       });
       return loading;
     },

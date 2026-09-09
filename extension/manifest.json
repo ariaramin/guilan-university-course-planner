@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "برنامه‌ریز انتخاب واحد دانشگاه گیلان",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "تحلیل محلی دروس و ساخت برنامه‌های بدون تداخل",
   "permissions": ["storage", "scripting"],
   "host_permissions": ["https://sada.guilan.ac.ir/*"],
