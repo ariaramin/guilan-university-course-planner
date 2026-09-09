@@ -29,6 +29,8 @@ test('background handshakes, validates live tables, and atomically publishes the
 
 test('dashboard refreshes on open and focus, rejects stale responses, and labels cached fallback', () => {
   assert.match(html, /id="refresh-courses"/);
+  assert.match(html, /class="loading-spinner"/);
+  assert.match(readFileSync(new URL('../extension/dashboard.css', import.meta.url), 'utf8'), /\.refresh-courses\[aria-busy="true"\] \.loading-spinner/);
   assert.match(dashboard, /نمایش اطلاعات مختص ردیف‌های قابل‌مشاهده/);
   assert.match(dashboard, /requestLiveCourses\('open'\)/);
   assert.match(dashboard, /addEventListener\('focus'/);

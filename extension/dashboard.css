@@ -396,10 +396,28 @@ label>span {
 
 .refresh-courses {
   min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
   color: var(--color-brand-header-text);
   background: var(--color-brand-header-surface);
   border-color: #6074ad;
   white-space: nowrap;
+}
+
+.loading-spinner {
+  display: none;
+  width: 1em;
+  aspect-ratio: 1;
+  border: 2px solid currentColor;
+  border-left-color: transparent;
+  border-radius: 50%;
+}
+
+.refresh-courses[aria-busy="true"] .loading-spinner {
+  display: block;
+  animation: spin .7s linear infinite;
 }
 
 .refresh-courses:hover {
@@ -1511,6 +1529,12 @@ main {
   from {
     opacity: 0;
     transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .refresh-courses[aria-busy="true"] .loading-spinner {
+    animation: none;
   }
 }
 
