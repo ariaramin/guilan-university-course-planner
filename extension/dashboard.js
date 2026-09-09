@@ -55,6 +55,10 @@ let appliedExtractedAt = 0;
 let latestLiveRequestId = '';
 let lastLiveRequestAt = 0;
 let unitOverrides = {};
+let completedCourses = [];
+let completedCourseIds = new Set();
+let completedCourseNames = new Set();
+let completedCoursesVersion = 0;
 const CACHE_STALE_AFTER_MS = 15 * 60 * 1000;
 let targetUnitsHandler = null;
 let targetCountHandler = null;
@@ -140,13 +144,65 @@ function showEmpty(container, message) {
   container.replaceChildren(empty);
 }
 
-function readPassedCourses() {
-  return new Set($('#passed-courses')?.value?.split(/[\n,、]+/).map(normalizeCourseName).filter(Boolean) ?? []);
+function normalizedCourseId(value) {
+  return englishDigits(value ?? '').replace(/[^\p{L}\p{N}]+/gu, '').toLocaleLowerCase('fa');
+}
+
+function normalizeCompletedCourses(courses) {
+  const byCourse = new Map();
+  for (const course of courses ?? []) {
+    const title = String(course?.title ?? '').trim();
+    const normalizedTitle = normalizeCourseName(title);
+    const courseId = normalizedCourseId(course?.courseId);
+    if (!normalizedTitle && !courseId) continue;
+    const units = Number(course?.units);
+    const grade = Number(course?.grade);
+    const completed = {
+      id: courseId || normalizedTitle,
+      courseId: courseId || null,
+      title,
+      normalizedTitle,
+      units: Number.isFinite(units) && units > 0 ? units : null,
+      grade: Number.isFinite(grade) ? grade : null,
+      source: course?.source === 'transcript' ? 'transcript' : 'manual',
+    };
+    const key = completed.courseId || completed.normalizedTitle;
+    const existing = byCourse.get(key);
+    if (!existing || (completed.grade ?? -Infinity) >= (existing.grade ?? -Infinity)) byCourse.set(key, completed);
+  }
+  completedCourses = [...byCourse.values()];
+  completedCourseIds = new Set(completedCourses.map((course) => course.courseId).filter(Boolean));
+  completedCourseNames = new Set(completedCourses.map((course) => course.normalizedTitle).filter(Boolean));
+  completedCoursesVersion += 1;
+}
+
+function isCompleted(group) {
+  return completedCourseIds.has(normalizedCourseId(group.courseId)) || completedCourseNames.has(groupSearchIndex.get(group.id).title);
 }
 
 function passedIds() {
-  const names = readPassedCourses();
-  return [...new Set(groups.filter((group) => names.has(groupSearchIndex.get(group.id).title)).map((group) => group.courseId))];
+  return [...new Set(groups.filter(isCompleted).map((group) => group.courseId))];
+}
+
+function renderCompletedCourses() {
+  const summary = completedCourses.length
+    ? `${persianDigits(completedCourses.length)} درس از پیشنهادها حذف می‌شود`
+    : 'هنوز درسی ثبت نشده است';
+  $('#completed-courses-summary').textContent = summary;
+  const fragment = document.createDocumentFragment();
+  for (const course of completedCourses) {
+    const row = node('div', 'completed-course-row');
+    const details = [course.units ? `${persianDigits(course.units)} واحد` : null, course.grade != null ? `نمره ${persianDigits(course.grade)}` : 'ثبت دستی']
+      .filter(Boolean).join(' · ');
+    row.append(node('strong', '', course.title || course.courseId), node('span', '', details));
+    const remove = node('button', 'button-ghost danger', 'حذف');
+    remove.type = 'button';
+    remove.dataset.removeCompletedCourse = course.id;
+    remove.setAttribute('aria-label', `حذف ${course.title || course.courseId} از درس‌های گذرانده‌شده`);
+    row.append(remove);
+    fragment.append(row);
+  }
+  $('#completed-courses-list').replaceChildren(fragment);
 }
 
 
@@ -155,7 +211,7 @@ function filterGroups() {
   const key = [
     groupsVersion, $('#title-filter').value, $('#instructor-filter').value, $('#day-filter').value,
     $('#unit-filter').value, $('#degree-filter').value, $('#term-filter').value, $('#gender-filter').value,
-    $('#chart-filter').value, $('#sort-by').value, $('#passed-courses')?.value ?? '',
+    $('#chart-filter').value, $('#sort-by').value, completedCoursesVersion,
     $('#capacity-only').checked, $('#show-full').checked,
     [...requiredGroupIds].sort().join(','),
   ].join('\u0000');
@@ -168,7 +224,6 @@ function filterGroups() {
   const term = $('#term-filter').value;
   const gender = $('#gender-filter').value;
   const chart = $('#chart-filter').value;
-  const passed = readPassedCourses();
   const result = groups.filter((group) =>
     (!title || groupSearchIndex.get(group.id).title.includes(title)) &&
     (!instructor || groupSearchIndex.get(group.id).instructor.includes(instructor)) &&
@@ -179,8 +234,7 @@ function filterGroups() {
     (!chart || (chart === 'matched' ? confirmedChartCourseIds.has(group.courseId) : !confirmedChartCourseIds.has(group.courseId))) &&
     (!$('#capacity-only').checked || (group.capacity ?? 0) > 0) &&
 
-    ($('#show-full').checked || group.available !== false) &&
-    !passed.has(groupSearchIndex.get(group.id).title),
+    ($('#show-full').checked || group.available !== false) && !isCompleted(group),
   );
   const chartWeight = (group) => group.chartStatus === 'matched' ? 3 : group.chartStatus === 'probable_match' ? 2 : group.chartStatus === 'needs_review' ? 1 : 0;
   const sort = $('#sort-by').value;
@@ -540,7 +594,7 @@ async function savePreferences() {
       instructor: $('#instructor-filter').value, day: $('#day-filter').value,
       unit: $('#unit-filter').value, degree: $('#degree-filter').value, term: $('#term-filter').value,
       gender: $('#gender-filter').value, chartFilter: $('#chart-filter').value,
-      sort: $('#sort-by').value, group: $('#group-by').value, passed: $('#passed-courses').value,
+      sort: $('#sort-by').value, group: $('#group-by').value,
       showFull: $('#show-full').checked,
       capacityOnly: $('#capacity-only').checked,
       prioritizeChart: $('#prioritize-chart').checked,
@@ -873,7 +927,7 @@ $('#course-dialog').addEventListener('click', (event) => {
 });
 
 
-for (const selector of ['#title-filter', '#instructor-filter', '#passed-courses']) $(selector)?.addEventListener('input', (event) => { event.target.value = persianDigits(event.target.value); requestRefresh(); });
+for (const selector of ['#title-filter', '#instructor-filter']) $(selector).addEventListener('input', (event) => { event.target.value = persianDigits(event.target.value); requestRefresh(); });
 for (const selector of ['#day-filter', '#unit-filter', '#degree-filter', '#term-filter', '#gender-filter', '#chart-filter', '#sort-by', '#group-by', '#capacity-only', '#show-full', '#prioritize-chart']) $(selector).addEventListener('change', () => requestRefresh());
 
 let filterReturnFocus = null;
@@ -1036,6 +1090,72 @@ $('#unit-review-list').addEventListener('click', async (event) => {
   }
 });
 
+async function persistCompletedCourses() {
+  await chrome.storage.local.set({ completedCourses });
+}
+
+$('#manual-completed-course').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const title = $('#completed-course-title').value.trim();
+  if (!title) return;
+  try {
+    const rawUnits = englishDigits($('#completed-course-units').value).replace('٫', '.').trim();
+    const units = rawUnits ? validUnits(rawUnits) : null;
+    normalizeCompletedCourses([...completedCourses, {
+      title,
+      courseId: $('#completed-course-code').value,
+      units,
+      source: 'manual',
+    }]);
+    await persistCompletedCourses();
+    renderCompletedCourses();
+    event.target.reset();
+    requestRefresh(false);
+    setStatus('درس گذرانده‌شده ثبت و از پیشنهادها حذف شد.', 'success');
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : 'اطلاعات درس معتبر نیست.', 'error');
+  }
+});
+
+$('#completed-courses-list').addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-remove-completed-course]');
+  if (!button) return;
+  completedCourses = completedCourses.filter((course) => course.id !== button.dataset.removeCompletedCourse);
+  normalizeCompletedCourses(completedCourses);
+  await persistCompletedCourses();
+  renderCompletedCourses();
+  requestRefresh(false);
+  setStatus('درس از فهرست گذرانده‌شده‌ها حذف شد.', 'success');
+});
+
+$('#extract-completed-courses').addEventListener('click', async () => {
+  const button = $('#extract-completed-courses');
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  setStatus('در حال استخراج درس‌های گذرانده‌شده از کارنامه…');
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'EXTRACT_COMPLETED_COURSES', requestId: crypto.randomUUID() });
+    if (response?.success === false || !response?.success) throw new Error(response?.errorCode ?? 'TRANSCRIPT_EXTRACTION_FAILED');
+    normalizeCompletedCourses(response.courses);
+    renderCompletedCourses();
+    requestRefresh(false);
+    setStatus(response.extracted
+      ? `${persianDigits(response.extracted)} درس پاس‌شده از کارنامه استخراج شد.`
+      : 'جدول کارنامه خوانده شد؛ درس پاس‌شدهٔ جدیدی پیدا نشد.', 'success');
+  } catch (error) {
+    const code = error instanceof Error ? error.message : '';
+    const message = code === 'TRANSCRIPT_NOT_FOUND'
+      ? 'جدول «دروس ترمی» پیدا نشد؛ در تب اصلی سادا کارنامه ترمی را باز کنید.'
+      : code === 'CONTENT_SCRIPT_VERSION_MISMATCH'
+        ? 'افزونه یا صفحهٔ سادا قدیمی است؛ افزونه و سپس صفحهٔ سادا را Reload کنید.'
+        : 'استخراج کارنامه کامل نشد. صفحه «کارنامه ترمی ← دروس ترمی» را باز و دوباره تلاش کنید.';
+    setStatus(message, 'error');
+  } finally {
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+  }
+});
+
 
 
 function formattedUpdateTime(value) {
@@ -1167,7 +1287,7 @@ $('#refresh-courses').addEventListener('click', () => void requestLiveCourses('m
 
 const stored = await chrome.storage.local.get([
   'cachedCourseDataset', 'rawGroups', 'courseDataMeta', 'lastImportedAt',
-  'plannerPreferences', 'chartData', 'unitOverrides',
+  'plannerPreferences', 'chartData', 'unitOverrides', 'completedCourses',
 ]);
 cachedResult = readCachedCourseDataset(stored);
 if (cachedResult.status === 'migrated') {
@@ -1189,7 +1309,9 @@ chartItems = stored.chartData?.items ?? [];
 chartDiagnostics = stored.chartData?.diagnostics ?? null;
 manualMatches = stored.chartData?.manualMatches ?? {};
 unitOverrides = stored.unitOverrides ?? {};
+normalizeCompletedCourses(stored.completedCourses);
 rebuildGroups();
+renderCompletedCourses();
 if (chartItems.length) { $('#chart-file-meta').textContent = `چارت ذخیره‌شده · ${persianDigits(chartItems.length)} درس`; $('#chart-summary-action').textContent = `${persianDigits(chartItems.length)} درس آماده`; $('#remove-chart').hidden = false; $('#chart-progress').textContent = 'اطلاعات چارت ذخیره‌شده آماده است.'; chartStats(); }
 
 const preferences = stored.plannerPreferences ?? {};
@@ -1202,7 +1324,7 @@ targetCountHandler = new IntegerInputHandler($('#target-count'), {
   min: 1, max: 15, required: false, label: 'تعداد درس', errorContainerId: 'target-count-error',
   onValidInput: () => requestRefresh()
 });
-$('#day-filter').value = preferences.day ?? ''; $('#unit-filter').value = preferences.unit ?? ''; if ($('#passed-courses')) $('#passed-courses').value = preferences.passed ?? '';
+$('#day-filter').value = preferences.day ?? ''; $('#unit-filter').value = preferences.unit ?? '';
 $('#sort-by').value = preferences.sort ?? 'name'; $('#group-by').value = preferences.group ?? ''; $('#show-full').checked = preferences.showFull ?? false;
 $('#gender-filter').value = preferences.gender ?? ''; $('#chart-filter').value = preferences.chartFilter ?? (preferences.chartOnly ? 'matched' : '');
 $('#capacity-only').checked = preferences.capacityOnly ?? false;
@@ -1216,6 +1338,11 @@ await refresh();
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'local') return;
+  if (changes.completedCourses) {
+    normalizeCompletedCourses(changes.completedCourses.newValue);
+    renderCompletedCourses();
+    requestRefresh(false);
+  }
   const dataset = changes.cachedCourseDataset?.newValue;
   if (!dataset || dataset.extractedAt < appliedExtractedAt) return;
   const result = readCachedCourseDataset({ cachedCourseDataset: dataset });

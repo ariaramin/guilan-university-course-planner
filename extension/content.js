@@ -1,7 +1,7 @@
 (() => {
   if (globalThis.__guilanPlannerContent) return;
 
-  const CONTENT_VERSION = '0.9.2';
+  const CONTENT_VERSION = '1.1.0';
   const extractor = globalThis.sadaDomExtractor;
   const STABILITY_MS = 350;
   const EXTRACTION_TIMEOUT_MS = 6500;
@@ -28,6 +28,15 @@
     }
     if (message?.type === 'PING_CONTENT_SCRIPT') {
       sendResponse({ requestId: message.requestId, ready: true, version: CONTENT_VERSION });
+      return;
+    }
+    if (message?.type === 'EXTRACT_COMPLETED_COURSES') {
+      try {
+        const extraction = extractor.extractAllVisibleTables(document);
+        sendResponse({ requestId: message.requestId, success: true, extractedAt: Date.now(), ...pageMetadata(), ...extraction });
+      } catch {
+        sendResponse({ requestId: message.requestId, success: false, errorCode: 'TRANSCRIPT_EXTRACTION_FAILED', ...pageMetadata() });
+      }
       return;
     }
     if (!['EXTRACT_CURRENT_COURSES', 'EXTRACT_TABLES'].includes(message?.type)) return;

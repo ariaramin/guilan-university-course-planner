@@ -16,6 +16,50 @@ export function groupsConflict(a, b) {
     examsOverlap(a.exam, b.exam);
 }
 
+function buildConflicts(groups) {
+  const conflicts = new Map(groups.map((group) => [group.id, new Set()]));
+  const add = (left, right) => {
+    if (left.group.id === right.group.id) return;
+    conflicts.get(left.group.id).add(right.group.id);
+    conflicts.get(right.group.id).add(left.group.id);
+  };
+  const sessionsByDay = new Map();
+  for (const group of groups) {
+    for (const session of group.sessions) {
+      const entries = sessionsByDay.get(session.day) ?? [];
+      entries.push({ group, session });
+      sessionsByDay.set(session.day, entries);
+    }
+  }
+  for (const sessions of sessionsByDay.values()) {
+    sessions.sort((left, right) => left.session.start - right.session.start);
+    let active = [];
+    for (const current of sessions) {
+      active = active.filter((entry) => entry.session.end > current.session.start);
+      for (const entry of active) if (weeksOverlap(entry.session.week, current.session.week)) add(entry, current);
+      active.push(current);
+    }
+  }
+  const examsByDate = new Map();
+  for (const group of groups) {
+    if (group.exam?.date && group.exam.start != null && group.exam.end != null) {
+      const entries = examsByDate.get(group.exam.date) ?? [];
+      entries.push({ group, exam: group.exam });
+      examsByDate.set(group.exam.date, entries);
+    }
+  }
+  for (const exams of examsByDate.values()) {
+    exams.sort((left, right) => left.exam.start - right.exam.start);
+    let active = [];
+    for (const current of exams) {
+      active = active.filter((entry) => entry.exam.end > current.exam.start);
+      for (const entry of active) add(entry, current);
+      active.push(current);
+    }
+  }
+  return conflicts;
+}
+
 function expressionMet(expression, passed, selected) {
   if (!expression) return true;
   if (expression.courseId) return passed.has(expression.courseId) || selected.has(expression.courseId);
@@ -131,15 +175,7 @@ export function generateSchedules(groups, options = {}) {
     return priority(right) - priority(left) ||
       Math.max(...right.map((group) => group.capacity ?? 0)) - Math.max(...left.map((group) => group.capacity ?? 0));
   });
-  const conflicts = new Map(schedulableGroups.map((group) => [group.id, new Set()]));
-  for (let left = 0; left < schedulableGroups.length; left += 1) {
-    for (let right = left + 1; right < schedulableGroups.length; right += 1) {
-      if (groupsConflict(schedulableGroups[left], schedulableGroups[right])) {
-        conflicts.get(schedulableGroups[left].id).add(schedulableGroups[right].id);
-        conflicts.get(schedulableGroups[right].id).add(schedulableGroups[left].id);
-      }
-    }
-  }
+  const conflicts = buildConflicts(schedulableGroups);
 
   let states = [{
     groups: [], groupIds: [], units: 0,

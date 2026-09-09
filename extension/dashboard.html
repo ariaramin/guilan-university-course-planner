@@ -14,7 +14,7 @@
     <div class="brand">
       <span class="brand-logo-frame">
         <img class="brand-logo" src="assets/university-of-guilan-logo.jpg" alt="نشان دانشگاه گیلان" width="1467"
-          height="1750">
+          height="1750" decoding="async" fetchpriority="high">
       </span>
       <div class="brand-copy">
         <p>در بستر دانشگاه گیلان</p>
@@ -37,6 +37,21 @@
       <div><strong id="summary-partial">۰</strong><span>واحد نامشخص</span></div>
       <div id="data-message" class="data-messages" role="status"></div>
     </section>
+
+    <details id="completed-courses-panel" class="completed-courses-panel panel">
+      <summary><span><strong>درس‌های گذرانده‌شده</strong><small id="completed-courses-summary">هنوز درسی ثبت نشده است</small></span></summary>
+      <div class="completed-courses-content">
+        <p>برای استخراج، در تب اصلی سادا «کارنامه ترمی ← دروس ترمی» را باز کنید. فقط نمره‌های ۱۰ و بیشتر ثبت می‌شوند.</p>
+        <button id="extract-completed-courses" class="button-primary" type="button">استخراج از کارنامهٔ باز</button>
+        <form id="manual-completed-course" class="completed-course-form">
+          <label><span>نام درس</span><input id="completed-course-title" type="text" required placeholder="مثلاً ریاضی عمومی"></label>
+          <label><span>کد درس <small>اختیاری</small></span><input id="completed-course-code" type="text" inputmode="numeric"></label>
+          <label><span>واحد <small>اختیاری</small></span><input id="completed-course-units" type="text" inputmode="decimal"></label>
+          <button class="button-secondary" type="submit">افزودن دستی</button>
+        </form>
+        <div id="completed-courses-list" class="completed-courses-list" aria-live="polite"></div>
+      </div>
+    </details>
 
     <details id="chart-panel" class="chart-panel panel">
       <summary>
@@ -199,7 +214,7 @@
       <div id="comparison" class="comparison" role="status" aria-live="polite" hidden></div>
       <div id="results">
         <div class="empty" role="status">
-          <img src="assets/university-of-guilan-logo.jpg" alt="" width="1467" height="1750" aria-hidden="true">
+          <img src="assets/university-of-guilan-logo.jpg" alt="" width="1467" height="1750" decoding="async" aria-hidden="true">
           <p>پس از دریافت درس‌ها، پیشنهادها خودکار ساخته می‌شوند</p>
         </div>
       </div>
@@ -220,8 +235,8 @@
       <p class="app-footer-love">ساخته‌شده توسط آریا رامین</p>
       <div class="app-footer-meta">
         <span class="app-footer-love">این ابزار مستقل است و وابستگی رسمی به دانشگاه گیلان ندارد</span>
-        <!-- <a href="https://github.com/ariaramin/guilan-university-course-scheduler" class="app-footer-link"
-          target="_blank" rel="noopener noreferrer">GitHub</a> -->
+        <a href="https://github.com/ariaramin/guilan-university-course-scheduler" class="app-footer-link"
+          target="_blank" rel="noopener noreferrer">GitHub</a>
       </div>
       <span id="app-version" class="app-footer-version"></span>
     </div>

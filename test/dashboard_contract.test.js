@@ -114,3 +114,11 @@ test('unresolved units have a correction flow and never advertise partial schedu
   assert.match(script, /تعداد واحد مشخص نیست/);
   assert.doesNotMatch(`${html}\n${script}`, /محاسبه جزئی/);
 });
+
+test('completed courses can be entered manually or extracted from the term transcript', () => {
+  assert.match(html, /id="extract-completed-courses"/);
+  assert.match(html, /id="manual-completed-course"/);
+  assert.match(script, /EXTRACT_COMPLETED_COURSES/);
+  assert.match(script, /completedCourses/);
+  assert.match(script, /isCompleted\(group\)/);
+});

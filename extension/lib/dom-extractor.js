@@ -167,6 +167,15 @@
     return { selectorFound: true, rowCount, confidence: maxScore, bestTable };
   }
 
+  function rowsFromTable(table) {
+    if (table.type === 'table') {
+      return [...table.element.rows].map((row) => [...row.cells].map(textOf));
+    }
+    return [...table.element.querySelectorAll('[role="row"]')].map((row) =>
+      [...row.querySelectorAll('[role="columnheader"], [role="gridcell"], [role="cell"]')].map(textOf)
+    ).filter((row) => row.length);
+  }
+
   globalThis.sadaDomExtractor = {
     checkTableReadiness(doc) {
       const result = { tables: [], visibleFrames: 0, unreadableFrames: 0 };
@@ -193,14 +202,7 @@
         );
 
         for (const part of parts) {
-          let rows = [];
-          if (part.type === 'table') {
-            rows = [...part.element.rows].map((row) => [...row.cells].map(textOf));
-          } else {
-            rows = [...part.element.querySelectorAll('[role="row"]')].map((row) =>
-              [...row.querySelectorAll('[role="columnheader"], [role="gridcell"], [role="cell"]')].map(textOf)
-            ).filter((row) => row.length);
-          }
+          const rows = rowsFromTable(part);
           if (rows.length) {
             extractedTables.push({ tableIndex: extractedTables.length, framePath: part.framePath, rows });
             totalRowCount += Math.max(0, rows.length - (part === status.bestTable ? 1 : 0));
@@ -218,6 +220,16 @@
         confidence: status.confidence,
         fingerprint: tableFingerprint(extractedTables),
       };
+    },
+    extractAllVisibleTables(doc) {
+      const result = { tables: [], visibleFrames: 0, unreadableFrames: 0 };
+      gatherTableElements(doc, 'top', result);
+      const tables = result.tables.map((table, tableIndex) => ({
+        tableIndex,
+        framePath: table.framePath,
+        rows: rowsFromTable(table),
+      })).filter((table) => table.rows.length);
+      return { ...result, tables, fingerprint: tableFingerprint(tables) };
     },
     hasVisibleLoadingIndicator(doc) {
       let loading = false;

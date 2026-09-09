@@ -39,6 +39,14 @@ test('extracts a table from a visible same-origin iframe', () => {
   }]);
 });
 
+test('returns every visible table for the transcript parser', () => {
+  const cell = (textContent) => ({ textContent, cloneNode: () => ({ textContent, querySelectorAll: () => [] }) });
+  const first = visible({ rows: [{ cells: [cell('نام درس')] }] });
+  const second = visible({ rows: [{ cells: [cell('نمره')] }] });
+  const result = context.sadaDomExtractor.extractAllVisibleTables(documentWith({ tables: [first, second] }));
+  assert.deepEqual(JSON.parse(JSON.stringify(result.tables.map((table) => table.rows))), [[['نام درس']], [['نمره']]]);
+});
+
 test('reports an unreadable visible frame without throwing', () => {
   const parent = documentWith({ frames: [visible({ contentDocument: null })] });
   const result = context.sadaDomExtractor.extractVisibleTables(parent);

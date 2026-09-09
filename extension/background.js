@@ -2,8 +2,9 @@ import { createCachedCourseDataset } from './lib/course-cache.js';
 import { courseDatasetFingerprint, extractionDiagnostic } from './lib/freshness.js';
 import { normalizeGroup } from './lib/normalize.js';
 import { parseSadaTables } from './lib/sada-parser.js';
+import { parseTranscriptTables } from './lib/transcript-parser.js';
 
-const CONTENT_VERSION = '0.9.2';
+const CONTENT_VERSION = '1.1.0';
 const SADA_ORIGIN = 'https://sada.guilan.ac.ir';
 const latestRequestByTab = new Map();
 const inFlightTabs = new Set();
@@ -57,10 +58,15 @@ async function pingContentScript(tabId, requestId) {
 async function ensureContentScript(tab, requestId, diagnostic) {
   try {
     const response = await pingContentScript(tab.id, requestId);
+    if (response.version !== CONTENT_VERSION) {
+      diagnostic.contentVersion = response.version;
+      throw new LiveExtractionError('CONTENT_SCRIPT_VERSION_MISMATCH', 'handshake');
+    }
     diagnostic.handshake = 'ready';
     diagnostic.contentVersion = response.version;
     return;
-  } catch {
+  } catch (error) {
+    if (error instanceof LiveExtractionError && error.code === 'CONTENT_SCRIPT_VERSION_MISMATCH') throw error;
     diagnostic.handshake = 'missing';
   }
   try {
@@ -74,6 +80,7 @@ async function ensureContentScript(tab, requestId, diagnostic) {
   }
   try {
     const response = await pingContentScript(tab.id, requestId);
+    if (response.version !== CONTENT_VERSION) throw new LiveExtractionError('CONTENT_SCRIPT_VERSION_MISMATCH', 'handshake_after_injection');
     diagnostic.handshake = 'ready-after-injection';
     diagnostic.contentVersion = response.version;
   } catch {
@@ -174,6 +181,39 @@ async function refreshFromSource(requestId, trigger) {
   return result;
 }
 
+function completionKey(course) {
+  return course.courseId || course.normalizedTitle;
+}
+
+async function extractCompletedCourses(requestId) {
+  const [tab] = await sourceTabs();
+  if (!tab?.id || !supportedUrl(tab.url)) throw new LiveExtractionError('UNSUPPORTED_PAGE', 'url_validation');
+  const diagnostic = { requestId, sourceUrl: safeSourceUrl(tab.url), handshake: 'not-started' };
+  await ensureContentScript(tab, requestId, diagnostic);
+  const extraction = await withTimeout(
+    chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_COMPLETED_COURSES', requestId }),
+    8000,
+  );
+  if (extraction?.success === false) throw new LiveExtractionError(extraction.errorCode ?? 'TRANSCRIPT_EXTRACTION_FAILED', 'transcript_extraction');
+  if (extraction?.requestId !== requestId || !Array.isArray(extraction?.tables)) {
+    throw new LiveExtractionError('INVALID_RESPONSE', 'transcript_extraction');
+  }
+  const parsed = parseTranscriptTables(extraction?.tables ?? []);
+  if (!parsed.matchedTables) throw new LiveExtractionError('TRANSCRIPT_NOT_FOUND', 'transcript_parsing');
+  const stored = await chrome.storage.local.get('completedCourses');
+  const merged = new Map((stored.completedCourses ?? [])
+    .filter((course) => completionKey(course))
+    .map((course) => [completionKey(course), course]));
+  for (const course of parsed.courses) {
+    const previous = merged.get(completionKey(course));
+    if (!previous || course.grade >= previous.grade) merged.set(completionKey(course), course);
+  }
+  const courses = [...merged.values()];
+  await chrome.storage.local.set({ completedCourses: courses });
+  await chrome.storage.session.set({ sadaSourceTabId: tab.id, plannerLaunchTabId: tab.id });
+  return { requestId, success: true, courses, extracted: parsed.courses.length, diagnostic: { ...diagnostic, ...parsed } };
+}
+
 chrome.action.onClicked.addListener(async (tab) => {
   await chrome.storage.session.set({
     plannerLaunchTabId: tab.id ?? null,
@@ -191,6 +231,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         success: false,
         errorCode: error instanceof LiveExtractionError ? error.code : 'LIVE_EXTRACTION_FAILED',
         diagnostic: error.diagnostic ?? { requestId: message.requestId, stage: error.stage ?? 'unknown' },
+      }));
+    return true;
+  }
+
+  if (message?.type === 'EXTRACT_COMPLETED_COURSES') {
+    void extractCompletedCourses(message.requestId)
+      .then(sendResponse)
+      .catch((error) => sendResponse({
+        requestId: message.requestId,
+        success: false,
+        errorCode: error instanceof LiveExtractionError ? error.code : 'TRANSCRIPT_EXTRACTION_FAILED',
       }));
     return true;
   }
